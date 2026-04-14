@@ -1,0 +1,31 @@
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const StudySession = sequelize.define('StudySession', {
+    id: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        autoIncrement: true,
+        primaryKey: true
+    },
+    groupId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false
+    },
+    sessionDate: {
+        type: DataTypes.DATE,
+        allowNull: false
+    },
+    topic: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    location: {
+        type: DataTypes.STRING,
+        allowNull: true
+    }
+}, {
+    tableName: 'sessions',
+    timestamps: true
+});
+
+module.exports = StudySession;
