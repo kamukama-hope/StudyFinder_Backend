@@ -1,6 +1,11 @@
+/**
+ * User model
+ * - stores registered users
+ * - includes authentication fields and optional student profile data
+ * - referenced by GroupMember, Post, Comment, and StudySession via foreign keys
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const bcrypt = require('bcryptjs');
 
 const User = sequelize.define('User', {
     id: {
@@ -11,11 +16,6 @@ const User = sequelize.define('User', {
     name: {
         type: DataTypes.STRING,
         allowNull: false
-    },
-    registrationNumber: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        unique: true
     },
     email: {
         type: DataTypes.STRING,
@@ -30,8 +30,8 @@ const User = sequelize.define('User', {
         allowNull: false
     },
     role: {
-        type: DataTypes.ENUM('student', 'admin', 'user'),
-        defaultValue: 'student'
+        type: DataTypes.ENUM('user', 'admin'),
+        defaultValue: 'user'
     },
     programOfStudy: {
         type: DataTypes.STRING,
@@ -43,25 +43,7 @@ const User = sequelize.define('User', {
     }
 }, {
     tableName: 'users',
-    timestamps: true,
-    hooks: {
-        beforeCreate: async (user) => {
-            if (user.password) {
-                const salt = await bcrypt.genSalt(10);
-                user.password = await bcrypt.hash(user.password, salt);
-            }
-        },
-        beforeUpdate: async (user) => {
-            if (user.changed('password')) {
-                const salt = await bcrypt.genSalt(10);
-                user.password = await bcrypt.hash(user.password, salt);
-            }
-        }
-    }
+    timestamps: true
 });
-
-User.prototype.comparePassword = async function(candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
-};
 
 module.exports = User;
