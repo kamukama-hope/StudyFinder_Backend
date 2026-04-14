@@ -16,6 +16,7 @@ router.post('/register', [
   body('name').notEmpty().withMessage('Name is required'),
   body('email').isEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('registrationNumber').notEmpty().withMessage('Registration number is required'),
   body('role').optional().isIn(['student', 'admin']).withMessage('Role must be student or admin'),
   body('programOfStudy').if(body('role').not().equals('admin')).notEmpty().withMessage('Program of study is required for student accounts'),
   body('yearOfStudy').if(body('role').not().equals('admin')).isInt({ min: 1, max: 6 }).withMessage('Valid year of study is required for student accounts')
@@ -26,14 +27,14 @@ router.post('/register', [
   }
 
   try {
-    const { name, email, password, programOfStudy, yearOfStudy, role = 'student' } = req.body;
+    const { name, email, password, registrationNumber, programOfStudy, yearOfStudy, role = 'student' } = req.body;
 
     const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const userData = { name, email, password, role };
+    const userData = { name, email, password, registrationNumber, role };
     if (role === 'student') {
       userData.programOfStudy = programOfStudy;
       userData.yearOfStudy = yearOfStudy;
@@ -45,7 +46,10 @@ router.post('/register', [
       _id: user.id,
       name: user.name,
       email: user.email,
+      registrationNumber: user.registrationNumber,
       role: user.role,
+      programOfStudy: user.programOfStudy,
+      yearOfStudy: user.yearOfStudy,
       token: generateToken(user.id)
     });
   } catch (error) {
@@ -74,6 +78,7 @@ router.post('/login', [
       _id: user.id,
       name: user.name,
       email: user.email,
+      registrationNumber: user.registrationNumber,
       role: user.role,
       programOfStudy: user.programOfStudy,
       yearOfStudy: user.yearOfStudy,

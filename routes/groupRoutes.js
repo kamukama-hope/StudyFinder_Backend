@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-
+const { protect } = require('../middleware/middleware');
 const Group = require('../models/Group');
+const GroupMember = require('../models/GroupMember');
 
 router.get('/', async (req, res) => {
   try {
@@ -12,8 +13,179 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Create group' });
+router.post('/', protect, async (req, res) => {
+  try {
+    const { groupName, courseName, courseCode, faculty, description, meetingLocation, meetingType } = req.body;
+    const group = await Group.create({
+      groupName,
+      courseName,
+      courseCode,
+      faculty,
+      description,
+      meetingLocation,
+      meetingType,
+      leaderId: req.user.id
+    });
+    
+    // Automatically join the group as leader
+    await GroupMember.create({
+      groupId: group.id,
+      userId: req.user.id
+    });
+
+    // Update user role to leader if they are currently a student
+    const User = require('../models/User');
+    const user = await User.findByPk(req.user.id);
+    if (user && user.role === 'student') {
+        user.role = 'leader';
+        await user.save();
+    }
+
+    res.status(201).json(group);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/:id/join', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const userId = req.user.id;
+
+    // Check if group exists
+    const group = await Group.findByPk(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Check if already a member
+    const existingMember = await GroupMember.findOne({
+      where: { groupId, userId }
+    });
+
+    if (existingMember) {
+      return res.status(400).json({ message: 'You are already a member of this group' });
+    }
+
+    // Join group
+    await GroupMember.create({ groupId, userId });
+
+    res.status(200).json({ message: 'Successfully joined the group' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/my-groups', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all group IDs the user is a member of
+    const memberships = await GroupMember.findAll({
+      where: { userId },
+      attributes: ['groupId']
+    });
+    
+    const groupIds = memberships.map(m => m.groupId);
+    
+    if (groupIds.length === 0) {
+      return res.json([]);
+    }
+
+    const groups = await Group.findAll({
+      where: { id: groupIds }
+    });
+
+    res.json(groups);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const group = await Group.findByPk(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+    res.json(group);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const group = await Group.findByPk(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (group.leaderId !== req.user.id) {
+      return res.status(403).json({ message: 'Only the group leader can edit group information' });
+    }
+
+    const { groupName, courseName, courseCode, faculty, description, meetingLocation, meetingType } = req.body;
+    await group.update({ groupName, courseName, courseCode, faculty, description, meetingLocation, meetingType });
+
+    res.json(group);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/:id/members', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    
+    // Ensure Group and User associations are set up for membership list
+    const User = require('../models/User');
+    Group.belongsToMany(User, { through: GroupMember, foreignKey: 'groupId' });
+    User.belongsToMany(Group, { through: GroupMember, foreignKey: 'userId' });
+
+    const group = await Group.findByPk(groupId, {
+      include: [{
+        model: User,
+        attributes: ['id', 'name', 'email', 'registrationNumber', 'programOfStudy'],
+        through: { attributes: ['joinedAt'] }
+      }]
+    });
+
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    res.json(group.Users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.delete('/:id/members/:userId', protect, async (req, res) => {
+  try {
+    const { id: groupId, userId } = req.params;
+
+    const group = await Group.findByPk(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (group.leaderId !== req.user.id) {
+      return res.status(403).json({ message: 'Only the group leader can remove members' });
+    }
+
+    if (parseInt(userId) === group.leaderId) {
+      return res.status(400).json({ message: 'Leaders cannot remove themselves from the group' });
+    }
+
+    await GroupMember.destroy({
+      where: { groupId, userId }
+    });
+
+    res.json({ message: 'Member removed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 module.exports = router;

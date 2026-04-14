@@ -12,12 +12,20 @@ const StudySession = sequelize.define('StudySession', {
         allowNull: false
     },
     sessionDate: {
-        type: DataTypes.DATE,
+        type: DataTypes.DATEONLY, // Using DATEONLY for just the date
+        allowNull: false
+    },
+    sessionTime: {
+        type: DataTypes.STRING,
         allowNull: false
     },
     topic: {
         type: DataTypes.STRING,
         allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: true
     },
     location: {
         type: DataTypes.STRING,

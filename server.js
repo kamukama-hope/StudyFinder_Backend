@@ -1,9 +1,7 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const sequelize = require('./config/database');
-
-dotenv.config();
 
 const authRoutes = require('./routes/authRoutes');
 const groupRoutes = require('./routes/groupRoutes');
@@ -20,7 +18,7 @@ app.use(express.json());
 sequelize.authenticate()
   .then(async () => {
     console.log('✅ MySQL connected');
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     console.log('✅ Database synced');
   })
   .catch((err) => {
