@@ -1,3 +1,9 @@
+/**
+ * Group model
+ * - represents study groups
+ * - stores course, meeting, and group metadata
+ * - leaderId references a User who leads the group
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 

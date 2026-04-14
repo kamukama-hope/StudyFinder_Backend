@@ -1,3 +1,9 @@
+/**
+ * GroupMember model
+ * - joins users to groups
+ * - tracks membership with groupId and userId
+ * - createdAt is renamed to joinedAt for membership timestamp tracking
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
