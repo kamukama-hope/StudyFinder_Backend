@@ -1,3 +1,9 @@
+/**
+ * User model
+ * - stores registered users
+ * - includes authentication fields and optional student profile data
+ * - referenced by GroupMember, Post, Comment, and StudySession via foreign keys
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 

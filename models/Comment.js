@@ -1,3 +1,8 @@
+/**
+ * Comment model
+ * - stores comments on posts
+ * - links each comment to a post and its author
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
