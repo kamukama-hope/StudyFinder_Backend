@@ -1,3 +1,8 @@
+/**
+ * Post model
+ * - stores group discussion posts
+ * - belongs to a group and is authored by a user
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 

@@ -1,3 +1,8 @@
+/**
+ * StudySession model
+ * - stores scheduled sessions for a study group
+ * - includes topic, date, and optional location
+ */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
