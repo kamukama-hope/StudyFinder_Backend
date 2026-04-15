@@ -188,4 +188,144 @@ router.delete('/:id/members/:userId', protect, async (req, res) => {
   }
 });
 
+router.get('/:id/posts', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    
+    const group = await Group.findByPk(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    const Post = require('../models/Post');
+    const User = require('../models/User');
+    Post.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
+
+    const posts = await Post.findAll({
+      where: { groupId },
+      include: [{ model: User, as: 'author', attributes: ['name', 'role'] }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/:id/posts', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content) return res.status(400).json({ message: 'Post content is required' });
+
+    const group = await Group.findByPk(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    const member = await GroupMember.findOne({ where: { groupId, userId } });
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    
+    if (!member && user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only members can post in this group' });
+    }
+
+    const Post = require('../models/Post');
+    const post = await Post.create({
+      groupId,
+      authorId: userId,
+      content
+    });
+
+    Post.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
+    const newPost = await Post.findByPk(post.id, {
+      include: [{ model: User, as: 'author', attributes: ['name', 'role'] }]
+    });
+
+    res.status(201).json(newPost);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   DELETE api/groups/:id
+// @desc - [x] Backend: Add `POST /groups/:id/leave` route
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const userId = req.user.id;
+
+    const group = await Group.findByPk(groupId);
+    if (!group) {
+        return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Authorization: Only leader or admin can delete
+    if (group.leaderId !== userId) {
+        const User = require('../models/User');
+        const user = await User.findByPk(userId);
+        if (user.role !== 'admin') {
+            return res.status(403).json({ message: 'Only the group leader or an administrator can decommission this group' });
+        }
+    }
+
+    // Cascade Delete Associated Records
+    const Post = require('../models/Post');
+    const StudySession = require('../models/StudySession');
+
+    await Promise.all([
+        GroupMember.destroy({ where: { groupId } }),
+        Post.destroy({ where: { groupId } }),
+        StudySession.destroy({ where: { groupId } }),
+        group.destroy()
+    ]);
+
+    // Check if user is still a leader of any other group
+    const User = require('../models/User');
+    const remainingGroupsCount = await Group.count({ where: { leaderId: userId } });
+    
+    if (remainingGroupsCount === 0) {
+        const user = await User.findByPk(userId);
+        if (user && user.role === 'leader') {
+            user.role = 'student';
+            await user.save();
+        }
+    }
+
+    res.json({ message: 'Group and all associated data decommissioned successfully' });
+  } catch (error) {
+    console.error('Delete group error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   POST api/groups/:id/leave
+// @desc    Leave a study group (Members only)
+router.post('/:id/leave', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const userId = req.user.id;
+
+    const group = await Group.findByPk(groupId);
+    if (!group) {
+        return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (group.leaderId === userId) {
+        return res.status(400).json({ message: 'Leaders cannot leave their own group. Please decommission the group instead.' });
+    }
+
+    const membership = await GroupMember.findOne({ where: { groupId, userId } });
+    if (!membership) {
+        return res.status(400).json({ message: 'You are not a member of this group' });
+    }
+
+    await membership.destroy();
+
+    res.json({ message: 'Successfully left the group' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
