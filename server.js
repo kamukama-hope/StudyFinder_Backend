@@ -18,7 +18,7 @@ app.use(express.json());
 sequelize.authenticate()
   .then(async () => {
     console.log('✅ MySQL connected');
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Database synced');
   })
   .catch((err) => {
