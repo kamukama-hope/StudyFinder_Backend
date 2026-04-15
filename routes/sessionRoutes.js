@@ -35,6 +35,10 @@ router.get('/my-sessions', protect, async (req, res) => {
       return res.json([]);
     }
 
+    // Define associations directly here to avoid initialization order issues
+    StudySession.belongsTo(Group, { foreignKey: 'groupId' });
+    Group.hasMany(StudySession, { foreignKey: 'groupId' });
+
     const sessions = await StudySession.findAll({
       where: { groupId: groupIds },
       include: [{
