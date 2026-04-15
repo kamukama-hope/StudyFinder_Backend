@@ -188,4 +188,64 @@ router.delete('/:id/members/:userId', protect, async (req, res) => {
   }
 });
 
+router.get('/:id/posts', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    
+    const group = await Group.findByPk(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    const Post = require('../models/Post');
+    const User = require('../models/User');
+    Post.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
+
+    const posts = await Post.findAll({
+      where: { groupId },
+      include: [{ model: User, as: 'author', attributes: ['name', 'role'] }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/:id/posts', protect, async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content) return res.status(400).json({ message: 'Post content is required' });
+
+    const group = await Group.findByPk(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    const member = await GroupMember.findOne({ where: { groupId, userId } });
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    
+    if (!member && user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only members can post in this group' });
+    }
+
+    const Post = require('../models/Post');
+    const post = await Post.create({
+      groupId,
+      authorId: userId,
+      content
+    });
+
+    Post.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
+    const newPost = await Post.findByPk(post.id, {
+      include: [{ model: User, as: 'author', attributes: ['name', 'role'] }]
+    });
+
+    res.status(201).json(newPost);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
